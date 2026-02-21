@@ -1,0 +1,30 @@
+[project]
+name = "daily-alpha"
+version = "3.1.0"
+description = "AI Agent 新聞收集與分析系統"
+requires-python = ">=3.10"
+
+# 💡 知識補給站：
+#    dependencies 列出這個專案需要的套件
+#    uv 會自動幫你建立虛擬環境、安裝這些套件
+#    你不需要自己 pip install，也不會影響系統的 Python
+
+dependencies = [
+    "google-genai>=1.0.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+# 💡 知識補給站：
+#    這裡定義「指令名稱 = 對應的程式入口」
+#    設定好之後，你可以直接在 Terminal 打指令名稱執行
+#    例如：uv run daily-alpha 就等於 python -m src.news_agent
+daily-alpha = "src.news_agent:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

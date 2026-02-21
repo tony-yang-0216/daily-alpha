@@ -1,0 +1,90 @@
+# ============================================
+# Daily Alpha — 搜尋主題設定 (v3.1)
+# ============================================
+# 調整重點：
+#   - 科技（AI/新技術）和經濟（趨勢/行情）為主力
+#   - 國際只看大新聞
+#   - 每主題篇數拉高，確保漏斗上方夠寬
+
+# ─── 時間設定 ─────────────────────────────
+schedule:
+  timezone: "Asia/Taipei"
+  morning: "08:30"
+  evening: "20:30"
+
+# ─── 搜尋主題 ─────────────────────────────
+# 💡 每個主題 = 一次 Gemini API call（含 Google Search）
+#    6 個主題 × 每天 2 次 = 12 次 / 天（免費額度 500 次）
+
+topics:
+
+  # ━━━ 科技：AI / 新技術（最高優先級）━━━
+  - name: "AI / 人工智慧"
+    category: "tech"
+    priority: 3
+    max_articles: 10
+    queries:
+      - "artificial intelligence AI breakthrough news today"
+      - "OpenAI Anthropic Google DeepMind Meta AI news"
+      - "LLM foundation model agent AI latest"
+      - "AI 人工智慧 最新突破 重大消息"
+
+  # ━━━ 科技：半導體 / 硬體 ━━━
+  - name: "半導體 / 晶片"
+    category: "tech"
+    priority: 3
+    max_articles: 8
+    queries:
+      - "semiconductor chip TSMC NVIDIA AMD Intel news today"
+      - "AI chip GPU HBM supply chain news"
+      - "台積電 半導體 晶片 NVIDIA 最新消息"
+
+  # ━━━ 科技：軟體 / SaaS / 新技術 ━━━
+  - name: "軟體 / 新技術"
+    category: "tech"
+    priority: 2
+    max_articles: 6
+    queries:
+      - "SaaS cloud computing enterprise software news"
+      - "robotics quantum computing biotech emerging technology"
+      - "Microsoft Google Apple Amazon cloud AI product launch"
+
+  # ━━━ 經濟：市場趨勢 / 行情 ━━━
+  - name: "市場趨勢 / 行情"
+    category: "economy"
+    priority: 3
+    max_articles: 8
+    queries:
+      - "stock market S&P 500 NASDAQ tech stocks earnings today"
+      - "美股 科技股 財報 行情 市場趨勢"
+      - "NVIDIA TSMC Apple Microsoft stock earnings news"
+
+  # ━━━ 經濟：總經 / 央行政策 ━━━
+  - name: "總經 / 央行政策"
+    category: "economy"
+    priority: 2
+    max_articles: 5
+    queries:
+      - "Federal Reserve interest rate inflation economic data"
+      - "聯準會 利率 通膨 經濟數據 央行"
+
+  # ━━━ 國際：只看重大事件 ━━━
+  - name: "國際重大事件"
+    category: "world"
+    priority: 1
+    max_articles: 3
+    queries:
+      - "major world news geopolitics trade war today"
+      - "台海 中美關係 地緣政治 重大國際事件"
+
+# ─── 每次執行預估 ─────────────────────────
+# 原始池：10+8+6+8+5+3 = 40 篇
+# 去重後：約 30~35 篇
+# AI 精選（Step 4）：12~15 篇
+# 最終晨報（Step 5）：6~9 篇
+
+# ─── Gemini 設定 ─────────────────────────────
+gemini:
+  model: "gemini-2.5-flash"
+  temperature: 0.2
+  max_output_tokens: 65536
