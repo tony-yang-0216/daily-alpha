@@ -32,52 +32,11 @@ except ImportError:
     print("      新版 SDK 從 2025 年開始統一用 google-genai")
     sys.exit(1)
 
-from .config import load_api_key, load_config
+from .config import load_api_key, load_config, load_prompt
 
 # Tool 物件可重複使用（無狀態），在 module 層級建立一次即可，
 # 每次 API 呼叫都傳入同一個 instance。
 _SEARCH_TOOL = types.Tool(google_search=types.GoogleSearch())
-
-# Prompt 設計原則：
-#   - 明確要求 Gemini 搜尋「過去 12 小時」，避免回傳舊新聞
-#   - 提供 queries_hint 作為搜尋方向參考，但不強制（讓 Gemini 自由發揮）
-#   - 要求固定 JSON 格式回傳，方便 json.loads() 解析
-#   - 明確規範 summary 的三要素（who/what/when + 影響 + 數據），讓後續 Step 2 有足夠資訊做深度分析
-#   - {{}} 是 Python .format() 字串中的跳脫字元，代表實際輸出為 {}
-_PROMPT_TEMPLATE = """你是一個專業的新聞研究員。請搜尋並整理「{topic_name}」領域過去 12 小時內最重要的新聞。
-
-搜尋提示（你可以參考但不限於這些關鍵字）：{queries_hint}
-
-要求：
-1. 找出最重要的 {max_articles} 則新聞
-2. 優先選擇來自可靠來源的報導（Reuters, Bloomberg, AP, BBC, TechCrunch, Ars Technica, CNBC, Financial Times, Tom's Hardware, VentureBeat, IEEE Spectrum 等）
-3. 如果某個事件有多家媒體報導，選擇最原始/最權威的那一篇
-4. 標題保留原文語言，其餘欄位用繁體中文
-
-每則新聞需包含以下資訊（這些資料會被後續的 AI 分析步驟使用，請盡量完整）：
-- title: 原文標題
-- source: 來源媒體名稱
-- url: 原文完整連結
-- summary: 繁體中文摘要，4~6 句話，必須包含：
-  (a) 發生了什麼事（who/what/when）
-  (b) 為什麼重要（影響範圍、受影響的公司或市場）
-  (c) 關鍵數據或引述（如有，例如營收數字、成長率、CEO 發言重點）
-- key_entities: 相關的公司、人物、技術（陣列）
-- relevance: high/medium/low
-
-請用以下 JSON 格式回覆（不要加 markdown 標記）：
-[
-  {{
-    "title": "原文標題",
-    "source": "來源媒體名稱",
-    "url": "原文連結",
-    "summary": "繁體中文摘要，4~6句，包含事件、重要性、關鍵數據",
-    "key_entities": ["公司A", "人物B", "技術C"],
-    "relevance": "high/medium/low"
-  }}
-]
-
-只回覆 JSON 陣列，不要有其他文字。"""
 
 
 def strip_markdown_fences(text: str) -> str:
@@ -136,7 +95,8 @@ def search_topic(client: Any, model: str, topic: dict, gemini_config: dict) -> d
        5. 附上來源連結（grounding_metadata）
     """
     topic_name = topic["name"]
-    prompt = _PROMPT_TEMPLATE.format(
+    prompt = load_prompt(
+        "collect_news",
         topic_name=topic_name,
         queries_hint=" / ".join(topic["queries"]),
         max_articles=topic.get("max_articles", 5),

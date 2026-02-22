@@ -11,9 +11,8 @@ publisher.py — GitHub Pages 索引產生器
 from datetime import datetime
 from pathlib import Path
 
-DOCS_DIR = Path("docs")
-DOCS_RAW_DIR = DOCS_DIR / "raw"
-DOCS_REPORT_DIR = DOCS_DIR / "report"
+from .config import DOCS_DIR, DOCS_RAW_DIR, DOCS_REPORT_DIR
+
 INDEX_PATH = DOCS_DIR / "index.md"
 
 

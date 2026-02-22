@@ -22,24 +22,14 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-# 四個目錄路徑集中定義，方便維護。
-# morning_report.py 也會 import DATA_RAW_DIR / DATA_REPORT_DIR 來尋找/匹配檔案。
-DATA_RAW_DIR = Path("data/raw")
-DATA_REPORT_DIR = Path("data/report")
-DOCS_RAW_DIR = Path("docs/raw")
-DOCS_REPORT_DIR = Path("docs/report")
-
-_CATEGORY_LABELS: dict[str, str] = {
-    "tech": "🔧 科技",
-    "economy": "💰 總經",
-    "world": "🌍 國際",
-}
-
-_RELEVANCE_EMOJI: dict[str, str] = {
-    "high": "🔴",
-    "medium": "🟡",
-    "low": "🟢",
-}
+from .config import (
+    DATA_RAW_DIR,
+    DATA_REPORT_DIR,
+    DOCS_RAW_DIR,
+    DOCS_REPORT_DIR,
+    get_session,
+    load_report_config,
+)
 
 
 def save_json(result: dict, timestamp: str) -> str:
@@ -59,6 +49,18 @@ def save_markdown(result: dict, timestamp: str) -> str:
     """Render the collection result to a human-readable Markdown file."""
     DOCS_RAW_DIR.mkdir(parents=True, exist_ok=True)
     filepath = DOCS_RAW_DIR / f"{timestamp}.md"
+
+    report_config = load_report_config()
+    category_labels: dict[str, str] = report_config.get("category_labels", {
+        "tech": "🔧 科技",
+        "economy": "💰 總經",
+        "world": "🌍 國際",
+    })
+    relevance_emoji: dict[str, str] = report_config.get("relevance_emoji", {
+        "high": "🔴",
+        "medium": "🟡",
+        "low": "🟢",
+    })
 
     meta = result["meta"]
     articles: list[dict] = result["articles"]
@@ -81,7 +83,7 @@ def save_markdown(result: dict, timestamp: str) -> str:
         if not cat_articles:
             continue
 
-        label = _CATEGORY_LABELS.get(cat, cat)
+        label = category_labels.get(cat, cat)
         lines += [f"## {label}（{len(cat_articles)} 篇）", ""]
 
         topics_in_cat: dict[str, list[dict]] = {}
@@ -94,7 +96,7 @@ def save_markdown(result: dict, timestamp: str) -> str:
 
             for article in topic_articles:
                 relevance = article.get("relevance", "medium")
-                emoji = _RELEVANCE_EMOJI.get(relevance, "⚪")
+                emoji = relevance_emoji.get(relevance, "⚪")
 
                 lines += [
                     f"**{emoji} {article.get('title', 'No title')}**",
@@ -125,7 +127,7 @@ def save_report_json(selected_articles: list[dict], report_text: str, timestamp:
 
     # 以 15:00 為界區分早報/晚報：GitHub Actions 分別在 08:00 和 20:00 台灣時間觸發，
     # 15:00 是兩者的中間點，用來自動判斷當次是哪個 session。
-    session = "morning" if datetime.now().hour < 15 else "evening"
+    session, _ = get_session()
     data = {
         "meta": {
             "generated_at": datetime.now().astimezone().isoformat(),

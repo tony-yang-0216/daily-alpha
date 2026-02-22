@@ -33,8 +33,15 @@ except ImportError:
     sys.exit(1)
 
 from .collector import extract_grounding_metadata, strip_markdown_fences
-from .config import load_api_key, load_report_config
-from .exporter import DATA_RAW_DIR, DATA_REPORT_DIR, save_report_json, save_report_markdown
+from .config import (
+    DATA_RAW_DIR,
+    DATA_REPORT_DIR,
+    get_session,
+    load_api_key,
+    load_prompt,
+    load_report_config,
+)
+from .exporter import save_report_json, save_report_markdown
 
 
 # ─── 讀取 Step 1 輸出 ─────────────────────────────────
@@ -100,30 +107,13 @@ def select_top_articles(client, articles: list[dict], config: dict) -> list[dict
             f"連結: {a.get('url', 'N/A')}\n"
         )
 
-    prompt = f"""你是一位資深新聞編輯，正在為以下讀者篩選今日最重要的新聞：
-
-讀者背景：{reader_profile}
-
-以下是今日收集到的 {len(articles)} 篇新聞摘要：
-{articles_text}
-
-請從中選出最重要的 {max_select} 篇，選擇標準：
-1. 科技（AI、半導體、新技術）權重最高
-2. 經濟（市場趨勢、行情、重大財報）次之
-3. 國際只選真正的重大事件
-4. 優先選擇有具體數據、影響範圍廣的新聞
-5. 避免選擇過於相似的新聞（同一事件只選最重要的一篇）
-6. 考慮讀者是初學者，選擇能幫助建立世界觀的新聞
-
-請回覆 JSON 陣列，包含選中文章的索引號碼和選擇理由：
-[
-  {{
-    "index": 0,
-    "reason": "為什麼選這篇（一句話）"
-  }}
-]
-
-只回覆 JSON 陣列，不要有其他文字。"""
+    prompt = load_prompt(
+        "select_articles",
+        reader_profile=reader_profile,
+        article_count=len(articles),
+        articles_text=articles_text,
+        max_select=max_select,
+    )
 
     print(f"🔍 AI 篩選中（{len(articles)} 篇 → {max_select} 篇）...")
 
@@ -175,84 +165,16 @@ def generate_report(client, selected_articles: list[dict], config: dict) -> str:
         )
 
     today = datetime.now().strftime("%Y 年 %m 月 %d 日")
-    session = "早報" if datetime.now().hour < 15 else "晚報"
+    _, session = get_session()
 
-    prompt = f"""你是「Daily Alpha」的主編，負責為讀者產出每日新聞晨報。
-
-## 讀者背景
-{reader_profile}
-
-## 今日精選（共 {len(selected_articles)} 篇）
-{articles_text}
-
-## 你的任務
-
-請產出一份完整的繁體中文晨報，格式如下：
-
-### 格式要求
-
-```
-# Daily Alpha {session}｜{today}
-
-> 一句話總結今天最重要的事
-
----
-
-## 📌 [新聞 1 的繁體中文標題]
-**來源**：媒體名稱 ｜ **分類**：科技/經濟/國際
-
-[深度分析，200~250 字]
-分析內容必須包含：
-- 發生了什麼事（清楚描述事件）
-- 為什麼重要（對產業、市場、或技術趨勢的影響）
-- 關鍵數據或引述（如果有的話）
-- 後續值得觀察什麼
-
-💡 **初學者筆記**
-用 5~6個要點解釋這則新聞涉及的背景知識。幫助完整了解這則新聞的意義和影響。
-假設讀者完全不懂這個領域，用最白話的方式解釋。
-例如：
-- 「法說會」是什麼？為什麼投資人在意？
-- 「HBM」是什麼？跟 AI 有什麼關係？
-- 「升息/降息」怎麼影響科技股？
-
-🔗 [原文連結](URL)
-
----
-
-（重複以上格式，每篇都要有深度分析 + 初學者筆記）
-
----
-
-## 🔭 Daily Insight｜今日趨勢觀察
-
-[400~500 字趨勢分析]
-如果可以把今天的新聞串連起來，就找出背後的共同趨勢或矛盾。
-例如：「台積電法說提到 AI 晶片需求超預期」+「Fed 暗示維持利率」
-→ 這兩件事合在一起代表什麼？對科技投資者意味著什麼？
-
----
-
-（重複以上格式，不同領域的深度分析或者不同領域但是可以經過判斷是相關的）
-
----
-
-寫作風格：像一位有經驗的朋友在跟你聊天，不是在寫論文。
-讓初學者讀完能理解「今天的世界發生了什麼、為什麼重要、我該關注什麼」。
-
----
-
-> 📊 本報告由 AI 自動產出，資料來源經 Google Search 驗證。
-> 投資決策請自行研究判斷，本報告不構成投資建議。
-```
-
-## 重要指示
-1. 請使用 Google Search 搜尋每篇新聞的原文連結，補充摘要中缺少的具體數據和細節
-2. 所有內容必須是繁體中文（標題也翻譯成中文）
-3. 初學者筆記是這份報告最重要的特色，請認真寫，不要敷衍
-4. Daily Insight 必須跨領域串連，不要只是重複各篇摘要
-5. 控制總長度在 25 分鐘閱讀量（約 4000~5000 字）
-6. 不要虛構任何數據，如果搜不到就不要寫"""
+    prompt = load_prompt(
+        "generate_report",
+        reader_profile=reader_profile,
+        article_count=len(selected_articles),
+        articles_text=articles_text,
+        today=today,
+        session=session,
+    )
 
     print("📝 正在產出晨報（Gemini 2.5 Flash + Google Search）...")
 

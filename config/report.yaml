@@ -14,6 +14,18 @@ max_articles_in_report: 8
 # 8 篇 × 每篇約 400 字（含初學者筆記）= 約 3000 字
 # 加上 Daily Insight 400 字 → 總計約 3500 字 → 約 25 分鐘閱讀
 
+# ─── 分類標籤 ─────────────────────────────
+category_labels:
+  tech: "🔧 科技"
+  economy: "💰 總經"
+  world: "🌍 國際"
+
+# ─── 重要性 Emoji ──────────────────────────
+relevance_emoji:
+  high: "🔴"
+  medium: "🟡"
+  low: "🟢"
+
 # ─── 讀者背景 ─────────────────────────────
 # 這段會直接傳給 AI，讓它知道該用什麼深度寫
 reader_profile: |

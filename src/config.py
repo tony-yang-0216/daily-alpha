@@ -7,10 +7,13 @@ config.py — 設定載入模組
   - load_config()        → config/topics.yaml（search topics、Gemini 模型設定）
   - load_report_config() → config/report.yaml（晨報產出設定）
   - load_api_key()       → .env 或系統環境變數中的 GEMINI_API_KEY
+  - load_prompt()        → prompts/{name}.txt（LLM 指令模板）
+  - get_session()        → 依現在時間回傳 (英文, 中文) 的早報/晚報標籤
 """
 
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -19,10 +22,21 @@ from dotenv import load_dotenv
 # __file__ 是本檔案（src/config.py）的絕對路徑。
 # .parent     → src/
 # .parent.parent → daily-alpha/（專案根目錄）
-# / "config"  → daily-alpha/config/
 # 這樣不管從哪個目錄執行 uv run，路徑都能正確解析。
-_CONFIG_DIR = Path(__file__).parent.parent / "config"
+PROJECT_ROOT = Path(__file__).parent.parent
+
+_CONFIG_DIR = PROJECT_ROOT / "config"
 _CONFIG_PATH = _CONFIG_DIR / "topics.yaml"
+_PROMPTS_DIR = PROJECT_ROOT / "prompts"
+
+# ─── 目錄路徑常數 ──────────────────────────────────────
+# 集中定義，消除 exporter.py / publisher.py / morning_report.py 中的重複定義。
+# 使用絕對路徑（基於 PROJECT_ROOT），不依賴 CWD。
+DATA_RAW_DIR = PROJECT_ROOT / "data" / "raw"
+DATA_REPORT_DIR = PROJECT_ROOT / "data" / "report"
+DOCS_DIR = PROJECT_ROOT / "docs"
+DOCS_RAW_DIR = DOCS_DIR / "raw"
+DOCS_REPORT_DIR = DOCS_DIR / "report"
 
 
 def load_config() -> dict:
@@ -35,6 +49,29 @@ def load_report_config() -> dict:
     """Load morning-report settings from config/report.yaml."""
     with (_CONFIG_DIR / "report.yaml").open(encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def load_prompt(name: str, **kwargs) -> str:
+    """Load prompts/{name}.txt and interpolate variables with str.format().
+
+    在 .txt 模板中：
+      {variable}  → 由 kwargs 填入
+      {{          → 輸出字面 {（用於 JSON 範例）
+      }}          → 輸出字面 }（用於 JSON 範例）
+    """
+    template = (_PROMPTS_DIR / f"{name}.txt").read_text(encoding="utf-8")
+    return template.format(**kwargs) if kwargs else template
+
+
+def get_session() -> tuple[str, str]:
+    """Return (english_label, chinese_label) for current session.
+
+    以 15:00 為界：GitHub Actions 在 08:00 和 20:00 台灣時間觸發，
+    15:00 是兩者的中間點，用來自動判斷當次是哪個 session。
+    """
+    if datetime.now().hour < 15:
+        return "morning", "早報"
+    return "evening", "晚報"
 
 
 def load_api_key() -> str:
