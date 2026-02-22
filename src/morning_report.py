@@ -4,7 +4,7 @@ morning_report.py — Step 2: AI 深度分析 + 晨報產出
 讀取 Step 1 的 JSON → AI 精選 + 深度分析 → 產出晨報 Markdown
 
 流程：
-  1. 讀取 Step 1 最新的 JSON（40 篇 summary）
+  1. 讀取 Step 1 最新的「尚未處理」JSON（data/raw/）
   2. AI 篩選出最重要的 6~9 篇
   3. 對精選文章做深度分析（用 Google Search 補充原文細節）
   4. 加入「初學者筆記」（背景知識補充）
@@ -12,9 +12,9 @@ morning_report.py — Step 2: AI 深度分析 + 晨報產出
   6. 輸出晨報 Markdown
 
 使用方式：
-  uv run python src/morning_report.py                        # 讀取最新的 Step 1 JSON
-  uv run python src/morning_report.py --input output/news_raw_20260221_0830.json
-  uv run python src/morning_report.py --dry-run              # 只印精選結果不產出晨報
+  uv run morning-report                                          # 處理最新未處理的 Step 1 JSON
+  uv run morning-report --input data/raw/20260221_0830.json      # 指定檔案（即使已處理也會執行）
+  uv run morning-report --dry-run                                # 只印精選結果不產出晨報
 """
 
 import argparse
@@ -34,20 +34,31 @@ except ImportError:
 
 from .collector import extract_grounding_metadata, strip_markdown_fences
 from .config import load_api_key, load_report_config
-from .exporter import save_report_json, save_report_markdown
+from .exporter import DATA_RAW_DIR, DATA_REPORT_DIR, save_report_json, save_report_markdown
 
 
 # ─── 讀取 Step 1 輸出 ─────────────────────────────────
 
 
-def find_latest_json(output_dir: str = "./output") -> Path:
-    """找到 output/ 裡最新的 news_raw_*.json。"""
-    files = sorted(Path(output_dir).glob("news_raw_*.json"))
-    if not files:
-        print(f"❌ 在 {output_dir}/ 找不到 Step 1 的 JSON 檔案！")
-        print("   請先執行：uv run python src/news_agent.py")
-        sys.exit(1)
-    latest = files[-1]
+def find_unprocessed_json() -> list[Path]:
+    """找出 data/raw/ 裡尚未有對應 data/report/ 檔案的 JSON。"""
+    raw_files = sorted(DATA_RAW_DIR.glob("*.json"))
+    return [f for f in raw_files if not (DATA_REPORT_DIR / f.name).exists()]
+
+
+def find_latest_json() -> Path:
+    """找到 data/raw/ 裡最新的尚未處理的 JSON。"""
+    unprocessed = find_unprocessed_json()
+    if not unprocessed:
+        all_raw = sorted(DATA_RAW_DIR.glob("*.json"))
+        if not all_raw:
+            print(f"❌ 在 {DATA_RAW_DIR}/ 找不到 Step 1 的 JSON 檔案！")
+            print("   請先執行：uv run daily-alpha")
+            sys.exit(1)
+        print("ℹ️  所有 raw JSON 都已處理過，沒有新的檔案可處理。")
+        sys.exit(0)
+
+    latest = unprocessed[-1]
     print(f"📂 讀取：{latest}")
     return latest
 
@@ -261,12 +272,7 @@ def main():
         "--input",
         type=str,
         default=None,
-        help="指定 Step 1 的 JSON 檔案路徑（預設：自動找最新的）",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="./output",
-        help="輸出目錄（預設：./output）",
+        help="指定 Step 1 的 JSON 檔案路徑（預設：自動找最新未處理的）",
     )
     parser.add_argument(
         "--dry-run",
@@ -286,7 +292,16 @@ def main():
     print("=" * 55)
     print()
 
-    json_path = args.input or find_latest_json(args.output_dir)
+    if args.input:
+        json_path = Path(args.input)
+        timestamp = json_path.stem
+        report_json = DATA_REPORT_DIR / f"{timestamp}.json"
+        if report_json.exists():
+            print(f"⚠️  警告：{report_json} 已存在，將覆蓋。")
+    else:
+        json_path = find_latest_json()
+        timestamp = json_path.stem
+
     step1_data = load_step1_data(json_path)
     articles = step1_data.get("articles", [])
     print(f"   共 {len(articles)} 篇待篩選")
@@ -304,8 +319,8 @@ def main():
     report_text = generate_report(client, selected, config)
 
     print()
-    report_path = save_report_markdown(report_text, args.output_dir)
-    save_report_json(selected, report_text, args.output_dir)
+    report_path = save_report_markdown(report_text, timestamp)
+    save_report_json(selected, report_text, timestamp)
 
     print()
     print("=" * 55)

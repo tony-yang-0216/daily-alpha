@@ -1,6 +1,12 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
+
+DATA_RAW_DIR = Path("data/raw")
+DATA_REPORT_DIR = Path("data/report")
+DOCS_RAW_DIR = Path("docs/raw")
+DOCS_REPORT_DIR = Path("docs/report")
 
 _CATEGORY_LABELS: dict[str, str] = {
     "tech": "🔧 科技",
@@ -15,25 +21,23 @@ _RELEVANCE_EMOJI: dict[str, str] = {
 }
 
 
-def save_json(result: dict, output_dir: str = "./output") -> str:
+def save_json(result: dict, timestamp: str) -> str:
     """Serialize the collection result to a timestamped JSON file."""
-    os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    filepath = os.path.join(output_dir, f"news_raw_{timestamp}.json")
+    DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = DATA_RAW_DIR / f"{timestamp}.json"
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2, default=str)
 
     size_kb = os.path.getsize(filepath) / 1024
     print(f"💾 JSON：{filepath} ({size_kb:.1f} KB)")
-    return filepath
+    return str(filepath)
 
 
-def save_markdown(result: dict, output_dir: str = "./output") -> str:
+def save_markdown(result: dict, timestamp: str) -> str:
     """Render the collection result to a human-readable Markdown file."""
-    os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    filepath = os.path.join(output_dir, f"news_raw_{timestamp}.md")
+    DOCS_RAW_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = DOCS_RAW_DIR / f"{timestamp}.md"
 
     meta = result["meta"]
     articles: list[dict] = result["articles"]
@@ -82,38 +86,18 @@ def save_markdown(result: dict, output_dir: str = "./output") -> str:
 
     size_kb = os.path.getsize(filepath) / 1024
     print(f"📄 Markdown：{filepath} ({size_kb:.1f} KB)")
-    return filepath
+    return str(filepath)
 
 
 # ─── Step 2: Report outputs ───────────────────────────
 
 
-def _session_tag() -> str:
-    """Return 'morning' before 15:00, 'evening' after."""
-    return "morning" if datetime.now().hour < 15 else "evening"
-
-
-def save_report_markdown(report_text: str, output_dir: str = "./output") -> str:
-    """Write the final report Markdown to a timestamped file."""
-    os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    filepath = os.path.join(output_dir, f"daily_alpha_{_session_tag()}_{timestamp}.md")
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(report_text)
-
-    size_kb = os.path.getsize(filepath) / 1024
-    print(f"📄 晨報已存檔：{filepath} ({size_kb:.1f} KB)")
-    return filepath
-
-
-def save_report_json(selected_articles: list[dict], report_text: str, output_dir: str = "./output") -> str:
+def save_report_json(selected_articles: list[dict], report_text: str, timestamp: str) -> str:
     """Persist selected articles and the rendered report as a JSON file."""
-    os.makedirs(output_dir, exist_ok=True)
-    session = _session_tag()
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    filepath = os.path.join(output_dir, f"daily_alpha_{session}_{timestamp}.json")
+    DATA_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = DATA_REPORT_DIR / f"{timestamp}.json"
 
+    session = "morning" if datetime.now().hour < 15 else "evening"
     data = {
         "meta": {
             "generated_at": datetime.now().astimezone().isoformat(),
@@ -128,4 +112,17 @@ def save_report_json(selected_articles: list[dict], report_text: str, output_dir
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, default=str)
 
-    return filepath
+    return str(filepath)
+
+
+def save_report_markdown(report_text: str, timestamp: str) -> str:
+    """Write the final report Markdown to a timestamped file."""
+    DOCS_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    filepath = DOCS_REPORT_DIR / f"{timestamp}.md"
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(report_text)
+
+    size_kb = os.path.getsize(filepath) / 1024
+    print(f"📄 晨報已存檔：{filepath} ({size_kb:.1f} KB)")
+    return str(filepath)

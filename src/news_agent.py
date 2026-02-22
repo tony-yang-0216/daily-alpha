@@ -15,6 +15,7 @@ Gemini 2.5 Flash + Google Search Grounding 取代 RSS。
 """
 
 import argparse
+from datetime import datetime
 
 from .collector import collect_all
 from .exporter import save_json, save_markdown
@@ -29,11 +30,6 @@ def main() -> None:
         type=str,
         default=None,
         help="只搜特定主題（逗號分隔），例如：--topics 'AI,半導體'",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="./output",
-        help="輸出目錄（預設：./output）",
     )
     parser.add_argument(
         "--dry-run",
@@ -56,13 +52,14 @@ def main() -> None:
             print()
         return
 
-    save_json(result, args.output_dir)
-    save_markdown(result, args.output_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    save_json(result, timestamp)
+    save_markdown(result, timestamp)
 
     print()
     print(f"{'=' * 55}")
     print("✅ Step 1 完成！")
-    print(f"   VS Code 打開 {args.output_dir}/ 查看結果")
+    print("   VS Code 打開 docs/raw/ 查看 Markdown 結果")
     print("   .md 檔按 Cmd+Shift+V 預覽")
     print(f"{'=' * 55}")
 
