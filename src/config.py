@@ -1,3 +1,14 @@
+"""
+config.py — 設定載入模組
+==========================
+集中處理所有外部設定的讀取，讓其他模組只需 import 函式，不用直接碰 YAML 或環境變數。
+
+職責：
+  - load_config()        → config/topics.yaml（search topics、Gemini 模型設定）
+  - load_report_config() → config/report.yaml（晨報產出設定）
+  - load_api_key()       → .env 或系統環境變數中的 GEMINI_API_KEY
+"""
+
 import os
 import sys
 from pathlib import Path
@@ -5,6 +16,11 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
+# __file__ 是本檔案（src/config.py）的絕對路徑。
+# .parent     → src/
+# .parent.parent → daily-alpha/（專案根目錄）
+# / "config"  → daily-alpha/config/
+# 這樣不管從哪個目錄執行 uv run，路徑都能正確解析。
 _CONFIG_DIR = Path(__file__).parent.parent / "config"
 _CONFIG_PATH = _CONFIG_DIR / "topics.yaml"
 

@@ -1,8 +1,29 @@
+"""
+exporter.py — 輸出模組（Step 1 & 2）
+======================================
+所有檔案 I/O 集中在這裡，其他模組只呼叫 save_*() 函式。
+
+雙目錄輸出設計：
+  每次產出都寫入兩個地方：
+  ┌─ data/raw/       ─── 本機原始資料（.gitignore 排除，不上傳）
+  │   data/report/       用於 Step 2 讀取、或本機除錯
+  │
+  └─ docs/raw/       ─── GitHub Pages 來源（git 追蹤，推送後自動發佈）
+      docs/report/       Jekyll 渲染成公開網頁
+
+  這樣設計的原因：
+  - data/ 保留完整 JSON（包含 raw_results），方便本機查閱或程式讀取
+  - docs/ 只放 Markdown，讓 GitHub Pages 能渲染成網頁
+  - 兩者時間戳相同（YYYYMMDD_HHMM），Step 2 用時間戳配對 raw ↔ report
+"""
+
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 
+# 四個目錄路徑集中定義，方便維護。
+# morning_report.py 也會 import DATA_RAW_DIR / DATA_REPORT_DIR 來尋找/匹配檔案。
 DATA_RAW_DIR = Path("data/raw")
 DATA_REPORT_DIR = Path("data/report")
 DOCS_RAW_DIR = Path("docs/raw")
@@ -102,6 +123,8 @@ def save_report_json(selected_articles: list[dict], report_text: str, timestamp:
     DATA_REPORT_DIR.mkdir(parents=True, exist_ok=True)
     filepath = DATA_REPORT_DIR / f"{timestamp}.json"
 
+    # 以 15:00 為界區分早報/晚報：GitHub Actions 分別在 08:00 和 20:00 台灣時間觸發，
+    # 15:00 是兩者的中間點，用來自動判斷當次是哪個 session。
     session = "morning" if datetime.now().hour < 15 else "evening"
     data = {
         "meta": {

@@ -70,6 +70,17 @@ def load_step1_data(filepath: str | Path) -> dict:
 
 
 # ─── 第一步：AI 篩選 ──────────────────────────────────
+#
+# 兩階段設計的原因：
+#   Step A（select_top_articles）— 「不開 Google Search」
+#     只讓 Gemini 看已有的摘要文字，做純文字比較和排序。
+#     不需要 Search，速度快，用 temperature=0.1（幾乎確定性輸出，確保篩選穩定）。
+#
+#   Step B（generate_report）— 「開啟 Google Search」
+#     對精選文章做深度分析時，讓 Gemini 自行搜尋補充原文細節、具體數據。
+#     用 temperature=0.3（略高，讓文字更自然流暢）。
+#
+# 這樣拆分可以避免在「比較 30 篇文章」的時候花費大量 Google Search 配額。
 
 
 def select_top_articles(client, articles: list[dict], config: dict) -> list[dict]:

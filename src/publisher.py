@@ -35,9 +35,13 @@ def _format_time(dt: datetime) -> str:
 
 def generate_index() -> str:
     """掃描 docs/ 並產生 index.md 內容。"""
+    # 分別收集 raw 和 report 的檔名（不含副檔名），用 set 方便後面查詢。
+    # 兩者都是 YYYYMMDD_HHMM 格式，同一個時間戳代表同一次執行的 Step 1 + Step 2。
     raw_stems = {f.stem for f in DOCS_RAW_DIR.glob("*.md")} if DOCS_RAW_DIR.exists() else set()
     report_stems = {f.stem for f in DOCS_REPORT_DIR.glob("*.md")} if DOCS_REPORT_DIR.exists() else set()
 
+    # 聯集（|）取得所有時間戳，讓「只有 raw、只有 report、兩者都有」的情況都能正確列出。
+    # reverse=True 讓最新的在最上面。
     all_stems = sorted(raw_stems | report_stems, reverse=True)
 
     lines = [
@@ -58,7 +62,8 @@ def generate_index() -> str:
         lines.append("*尚無報告，請先執行 `uv run daily-alpha` 與 `uv run morning-report`。*")
         lines.append("")
     else:
-        # Group stems by date (YYYYMMDD) for the section header
+        # 把時間戳按日期（前 8 碼 YYYYMMDD）分組，
+        # 同一天的早報和晚報會顯示在同一個日期區塊下。
         by_date: dict[str, list[str]] = {}
         for stem in all_stems:
             date_key = stem[:8]  # YYYYMMDD

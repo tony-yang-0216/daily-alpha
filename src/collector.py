@@ -1,3 +1,20 @@
+"""
+collector.py — 新聞收集核心模組（Step 1）
+==========================================
+這是整個系統最核心的檔案，負責實作「Gemini + Google Search Grounding」的新聞收集流程。
+
+主要職責：
+  1. 對每個 topic，呼叫一次 Gemini API（帶 Google Search 工具）
+  2. Gemini 自動決定搜尋 query、搜 Google、讀取結果、整理成 JSON
+  3. 解析 Gemini 回傳的 JSON，提取 grounding metadata（引用來源、搜尋次數）
+  4. 對所有 topic 的結果做跨主題去重
+  5. 回傳完整的結構化資料給 exporter.py 存檔
+
+呼叫關係：
+  news_agent.py → collect_all() → search_topic()（每個 topic 一次）
+                                → deduplicate_articles()
+"""
+
 import json
 import sys
 import time
@@ -17,9 +34,16 @@ except ImportError:
 
 from .config import load_api_key, load_config
 
-# Reuse a single Tool instance — it carries no per-request state.
+# Tool 物件可重複使用（無狀態），在 module 層級建立一次即可，
+# 每次 API 呼叫都傳入同一個 instance。
 _SEARCH_TOOL = types.Tool(google_search=types.GoogleSearch())
 
+# Prompt 設計原則：
+#   - 明確要求 Gemini 搜尋「過去 12 小時」，避免回傳舊新聞
+#   - 提供 queries_hint 作為搜尋方向參考，但不強制（讓 Gemini 自由發揮）
+#   - 要求固定 JSON 格式回傳，方便 json.loads() 解析
+#   - 明確規範 summary 的三要素（who/what/when + 影響 + 數據），讓後續 Step 2 有足夠資訊做深度分析
+#   - {{}} 是 Python .format() 字串中的跳脫字元，代表實際輸出為 {}
 _PROMPT_TEMPLATE = """你是一個專業的新聞研究員。請搜尋並整理「{topic_name}」領域過去 12 小時內最重要的新聞。
 
 搜尋提示（你可以參考但不限於這些關鍵字）：{queries_hint}
@@ -248,6 +272,8 @@ def collect_all(topic_filter: str | None = None) -> dict:
             print(f"   ❌ 失敗：{result.get('error', '')}")
 
         if i < len(topics):
+            # 對 API 的禮貌性延遲：避免在短時間內送出太多請求，
+            # 也讓 Google Search Grounding 的配額消耗更穩定。
             time.sleep(1)
 
     print()
