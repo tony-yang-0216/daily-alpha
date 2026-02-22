@@ -32,7 +32,7 @@ except ImportError:
     print("      新版 SDK 從 2025 年開始統一用 google-genai")
     sys.exit(1)
 
-from .config import load_api_key, load_config, load_prompt
+from .config import TZ_TAIPEI, load_api_key, load_config, load_prompt
 
 # Tool 物件可重複使用（無狀態），在 module 層級建立一次即可，
 # 每次 API 呼叫都傳入同一個 instance。
@@ -206,7 +206,7 @@ def collect_all(topic_filter: str | None = None) -> dict:
     print("🤖 Daily Alpha — AI Agent 新聞收集器")
     print(f"   模型：{model}")
     print(f"   主題：{len(topics)} 個")
-    print(f"   時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   時間：{datetime.now(TZ_TAIPEI).strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'=' * 55}")
     print()
 
@@ -255,7 +255,7 @@ def collect_all(topic_filter: str | None = None) -> dict:
 
     return {
         "meta": {
-            "collected_at": datetime.now().astimezone().isoformat(),
+            "collected_at": datetime.now(TZ_TAIPEI).isoformat(),
             "model": model,
             "total_articles": len(unique_articles),
             "duplicates_removed": dedup_removed,

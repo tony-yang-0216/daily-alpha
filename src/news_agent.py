@@ -18,6 +18,7 @@ import argparse
 from datetime import datetime
 
 from .collector import collect_all
+from .config import TZ_TAIPEI
 from .exporter import save_json, save_markdown
 
 
@@ -52,7 +53,7 @@ def main() -> None:
             print()
         return
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    timestamp = datetime.now(TZ_TAIPEI).strftime("%Y%m%d_%H%M")
     save_json(result, timestamp)
     save_markdown(result, timestamp)
 

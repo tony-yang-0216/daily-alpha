@@ -27,6 +27,7 @@ from .config import (
     DATA_REPORT_DIR,
     DOCS_RAW_DIR,
     DOCS_REPORT_DIR,
+    TZ_TAIPEI,
     get_session,
     load_report_config,
 )
@@ -130,7 +131,7 @@ def save_report_json(selected_articles: list[dict], report_text: str, timestamp:
     session, _ = get_session()
     data = {
         "meta": {
-            "generated_at": datetime.now().astimezone().isoformat(),
+            "generated_at": datetime.now(TZ_TAIPEI).isoformat(),
             "session": session,
             "articles_analyzed": len(selected_articles),
             "report_length": len(report_text),

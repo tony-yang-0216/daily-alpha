@@ -15,6 +15,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import yaml
 from dotenv import load_dotenv
@@ -23,6 +24,8 @@ from dotenv import load_dotenv
 # .parent     → src/
 # .parent.parent → daily-alpha/（專案根目錄）
 # 這樣不管從哪個目錄執行 uv run，路徑都能正確解析。
+TZ_TAIPEI = ZoneInfo("Asia/Taipei")
+
 PROJECT_ROOT = Path(__file__).parent.parent
 
 _CONFIG_DIR = PROJECT_ROOT / "config"
@@ -69,7 +72,7 @@ def get_session() -> tuple[str, str]:
     以 15:00 為界：GitHub Actions 在 08:00 和 20:00 台灣時間觸發，
     15:00 是兩者的中間點，用來自動判斷當次是哪個 session。
     """
-    if datetime.now().hour < 15:
+    if datetime.now(TZ_TAIPEI).hour < 15:
         return "morning", "早報"
     return "evening", "晚報"
 

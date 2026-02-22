@@ -36,6 +36,7 @@ from .collector import extract_grounding_metadata, strip_markdown_fences
 from .config import (
     DATA_RAW_DIR,
     DATA_REPORT_DIR,
+    TZ_TAIPEI,
     get_session,
     load_api_key,
     load_prompt,
@@ -164,7 +165,7 @@ def generate_report(client, selected_articles: list[dict], config: dict) -> str:
             f"入選理由: {a.get('selection_reason', 'N/A')}\n"
         )
 
-    today = datetime.now().strftime("%Y 年 %m 月 %d 日")
+    today = datetime.now(TZ_TAIPEI).strftime("%Y 年 %m 月 %d 日")
     _, session = get_session()
 
     prompt = load_prompt(
@@ -221,7 +222,7 @@ def main():
     print("=" * 55)
     print("📰 Daily Alpha — 晨報產出器")
     print(f"   模型：{config.get('model', 'gemini-2.5-flash')}")
-    print(f"   時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   時間：{datetime.now(TZ_TAIPEI).strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 55)
     print()
 
