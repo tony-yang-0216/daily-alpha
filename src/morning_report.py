@@ -93,7 +93,7 @@ def load_step1_data(filepath: str | Path) -> dict:
 
 def select_top_articles(client, articles: list[dict], config: dict) -> list[dict]:
     """從 30~40 篇中精選最重要的文章（不帶 Google Search）。"""
-    model = config.get("model", "gemini-2.5-flash")
+    model = config.get("model", "gemini-3-flash-preview")
     max_select = config.get("max_articles_in_report", 8)
     reader_profile = config.get("reader_profile", "")
 
@@ -149,7 +149,7 @@ def select_top_articles(client, articles: list[dict], config: dict) -> list[dict
 
 def generate_report(client, selected_articles: list[dict], config: dict) -> str:
     """對精選文章做深度分析，產出完整晨報（啟用 Google Search Grounding）。"""
-    model = config.get("model", "gemini-2.5-flash")
+    model = config.get("model", "gemini-3-flash-preview")
     reader_profile = config.get("reader_profile", "")
 
     articles_text = ""

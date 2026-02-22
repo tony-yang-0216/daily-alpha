@@ -193,7 +193,7 @@ def collect_all(topic_filter: str | None = None) -> dict:
     api_key = load_api_key()
     topics: list[dict] = config.get("topics", [])
     gemini_config: dict = config.get("gemini", {})
-    model: str = gemini_config.get("model", "gemini-2.5-flash")
+    model: str = gemini_config.get("model", "gemini-3-flash-preview")
 
     client = genai.Client(api_key=api_key)
 
