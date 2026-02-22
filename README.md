@@ -145,7 +145,7 @@ Controls what Step 1 searches for.
 
 ### `config/report.yaml` — Report Generation
 
-Controls what Step 2 generates.
+Controls what Step 2 generates and how Step 1 output is rendered.
 
 | Field | Description |
 |---|---|
@@ -153,8 +153,24 @@ Controls what Step 2 generates.
 | `max_output_tokens` | Max tokens for report response |
 | `max_articles` | Max articles in the final report (default: 8) |
 | `reader_profile` | Description of the target reader (used to calibrate AI tone) |
+| `category_labels` | Display labels for each category (`tech`, `economy`, `world`) |
+| `relevance_emoji` | Emoji indicators for relevance levels (`high`, `medium`, `low`) |
 
 The `reader_profile` field shapes the AI's article selection and writing style. It currently describes a beginner investor who is interested in technology and global economics and prefers friendly explanations over jargon.
+
+---
+
+### `prompts/` — LLM Prompt Templates
+
+The three Gemini prompt templates live in plain `.txt` files and use Python's `str.format()` syntax for variable substitution — no extra dependencies needed.
+
+| File | Used by | Variables |
+|---|---|---|
+| `collect_news.txt` | Step 1 collection | `{topic_name}`, `{queries_hint}`, `{max_articles}` |
+| `select_articles.txt` | Step 2 article selection | `{reader_profile}`, `{article_count}`, `{articles_text}`, `{max_select}` |
+| `generate_report.txt` | Step 2 report generation | `{reader_profile}`, `{article_count}`, `{articles_text}`, `{today}`, `{session}` |
+
+To adjust the AI's behavior, edit these files directly — no Python changes needed. `{{` and `}}` in the templates represent literal `{` and `}` characters (used in JSON format examples).
 
 ---
 
@@ -283,7 +299,11 @@ daily-alpha/
 │       └── daily.yml           # Automated daily pipeline
 ├── config/
 │   ├── topics.yaml             # Search topics, queries, Gemini settings
-│   └── report.yaml             # Morning report configuration
+│   └── report.yaml             # Morning report configuration (incl. display labels)
+├── prompts/
+│   ├── collect_news.txt        # Step 1 Gemini prompt template
+│   ├── select_articles.txt     # Step 2 article selection prompt template
+│   └── generate_report.txt     # Step 2 report generation prompt template
 ├── data/                       # Local data (git-ignored)
 │   ├── raw/                    # Step 1 JSON outputs
 │   └── report/                 # Step 2 JSON outputs
@@ -296,7 +316,7 @@ daily-alpha/
 │   ├── __init__.py
 │   ├── news_agent.py           # Step 1 CLI entry point (argparse + orchestration)
 │   ├── collector.py            # Gemini search, JSON parsing, deduplication
-│   ├── config.py               # Load topics.yaml, report.yaml, API key
+│   ├── config.py               # Load configs, prompts, path constants, session helper
 │   ├── exporter.py             # Write JSON and Markdown for Steps 1 & 2
 │   ├── morning_report.py       # Step 2 CLI: AI selection + deep analysis
 │   └── publisher.py            # Step 3: scan docs/, generate index.md
@@ -308,13 +328,15 @@ daily-alpha/
 
 ### Key Source Files
 
+**`src/config.py`** — Central configuration hub. Loads `topics.yaml`, `report.yaml`, and the Gemini API key. Also provides `load_prompt()` (reads `prompts/*.txt` and interpolates variables), absolute path constants for all data/docs directories (`DATA_RAW_DIR`, `DOCS_REPORT_DIR`, etc.), and `get_session()` which returns the `(english, chinese)` session label based on current time.
+
 **`src/collector.py`** — Core of Step 1. Each topic = 1 Gemini API call with Google Search Grounding enabled. Handles JSON parsing, markdown fence stripping, grounding metadata extraction, and cross-topic deduplication.
 
 **`src/morning_report.py`** — Core of Step 2. Finds the latest unprocessed Step 1 JSON, asks Gemini to select the most relevant articles, then generates deep analysis and beginner notes for each. Uses Google Search Grounding for supplementary detail.
 
 **`src/publisher.py`** — Step 3. Scans all `.md` files in `docs/raw/` and `docs/report/`, generates a grouped-by-date `docs/index.md` with links in reverse chronological order.
 
-**`src/exporter.py`** — Shared output writer for all steps. Handles both `data/` (JSON) and `docs/` (Markdown) destinations.
+**`src/exporter.py`** — Shared output writer for all steps. Handles both `data/` (JSON) and `docs/` (Markdown) destinations. Reads category labels and relevance emoji from `config/report.yaml`.
 
 ---
 
