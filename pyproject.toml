@@ -22,6 +22,7 @@ dependencies = [
 #    例如：uv run daily-alpha 就等於 python -m src.news_agent
 daily-alpha = "src.news_agent:main"
 morning-report = "src.morning_report:main"
+publish = "src.publisher:main"
 
 [build-system]
 requires = ["hatchling"]

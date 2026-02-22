@@ -43,6 +43,10 @@ def save_markdown(result: dict, timestamp: str) -> str:
     articles: list[dict] = result["articles"]
 
     lines: list[str] = [
+        "---",
+        f'title: "Daily Alpha 新聞收集 {timestamp}"',
+        "---",
+        "",
         "# 📡 Daily Alpha — 新聞收集",
         "> 🤖 由 Gemini + Google Search 自動收集",
         f"> 📅 {meta['collected_at']}",
@@ -120,8 +124,9 @@ def save_report_markdown(report_text: str, timestamp: str) -> str:
     DOCS_REPORT_DIR.mkdir(parents=True, exist_ok=True)
     filepath = DOCS_REPORT_DIR / f"{timestamp}.md"
 
+    front_matter = f"---\ntitle: \"Daily Alpha 晨報 {timestamp}\"\n---\n\n"
     with open(filepath, "w", encoding="utf-8") as f:
-        f.write(report_text)
+        f.write(front_matter + report_text)
 
     size_kb = os.path.getsize(filepath) / 1024
     print(f"📄 晨報已存檔：{filepath} ({size_kb:.1f} KB)")
