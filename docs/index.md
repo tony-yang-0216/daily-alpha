@@ -1,5 +1,6 @@
 ---
 title: "Daily Alpha — 每日 AI 新聞報告"
+nav_order: 1
 ---
 
 # Daily Alpha

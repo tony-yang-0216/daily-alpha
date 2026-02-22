@@ -1,6 +1,9 @@
 title: Daily Alpha
 description: 每日 AI 新聞收集與深度分析報告
-theme: minima
+remote_theme: just-the-docs/just-the-docs@v0.10.0
+
+plugins:
+  - jekyll-remote-theme
 
 # 確保 docs/raw/ 和 docs/report/ 都被 Jekyll 掃描
 include:
