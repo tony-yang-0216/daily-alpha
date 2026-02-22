@@ -9,9 +9,7 @@ nav_order: 1
 
 ---
 
-## 2026 年 02 月 22 日
-
-- 📡 [原始收集（16:06）](raw/20260222_1606.md)
+*尚無報告，請先執行 `uv run daily-alpha` 與 `uv run morning-report`。*
 
 ---
 
