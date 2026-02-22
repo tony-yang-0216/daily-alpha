@@ -83,3 +83,49 @@ def save_markdown(result: dict, output_dir: str = "./output") -> str:
     size_kb = os.path.getsize(filepath) / 1024
     print(f"📄 Markdown：{filepath} ({size_kb:.1f} KB)")
     return filepath
+
+
+# ─── Step 2: Report outputs ───────────────────────────
+
+
+def _session_tag() -> str:
+    """Return 'morning' before 15:00, 'evening' after."""
+    return "morning" if datetime.now().hour < 15 else "evening"
+
+
+def save_report_markdown(report_text: str, output_dir: str = "./output") -> str:
+    """Write the final report Markdown to a timestamped file."""
+    os.makedirs(output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filepath = os.path.join(output_dir, f"daily_alpha_{_session_tag()}_{timestamp}.md")
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(report_text)
+
+    size_kb = os.path.getsize(filepath) / 1024
+    print(f"📄 晨報已存檔：{filepath} ({size_kb:.1f} KB)")
+    return filepath
+
+
+def save_report_json(selected_articles: list[dict], report_text: str, output_dir: str = "./output") -> str:
+    """Persist selected articles and the rendered report as a JSON file."""
+    os.makedirs(output_dir, exist_ok=True)
+    session = _session_tag()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filepath = os.path.join(output_dir, f"daily_alpha_{session}_{timestamp}.json")
+
+    data = {
+        "meta": {
+            "generated_at": datetime.now().astimezone().isoformat(),
+            "session": session,
+            "articles_analyzed": len(selected_articles),
+            "report_length": len(report_text),
+        },
+        "selected_articles": selected_articles,
+        "report_markdown": report_text,
+    }
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+
+    return filepath

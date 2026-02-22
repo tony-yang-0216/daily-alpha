@@ -21,6 +21,7 @@ dependencies = [
 #    設定好之後，你可以直接在 Terminal 打指令名稱執行
 #    例如：uv run daily-alpha 就等於 python -m src.news_agent
 daily-alpha = "src.news_agent:main"
+morning-report = "src.morning_report:main"
 
 [build-system]
 requires = ["hatchling"]

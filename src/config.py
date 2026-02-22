@@ -5,12 +5,19 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-_CONFIG_PATH = Path(__file__).parent.parent / "config" / "topics.yaml"
+_CONFIG_DIR = Path(__file__).parent.parent / "config"
+_CONFIG_PATH = _CONFIG_DIR / "topics.yaml"
 
 
 def load_config() -> dict:
     """Load topics and Gemini settings from config/topics.yaml."""
     with _CONFIG_PATH.open(encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def load_report_config() -> dict:
+    """Load morning-report settings from config/report.yaml."""
+    with (_CONFIG_DIR / "report.yaml").open(encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

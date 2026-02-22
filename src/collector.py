@@ -56,7 +56,7 @@ _PROMPT_TEMPLATE = """你是一個專業的新聞研究員。請搜尋並整理�
 只回覆 JSON 陣列，不要有其他文字。"""
 
 
-def _strip_markdown_fences(text: str) -> str:
+def strip_markdown_fences(text: str) -> str:
     """Remove markdown code fences that Gemini sometimes wraps around JSON."""
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
@@ -68,7 +68,7 @@ def _strip_markdown_fences(text: str) -> str:
     return text
 
 
-def _extract_grounding_metadata(response: Any) -> tuple[list[dict], list[str]]:
+def extract_grounding_metadata(response: Any) -> tuple[list[dict], list[str]]:
     """
     Extract grounding sources and search queries from a Gemini response.
 
@@ -126,13 +126,13 @@ def search_topic(client: Any, model: str, topic: dict, gemini_config: dict) -> d
             config=types.GenerateContentConfig(
                 tools=[_SEARCH_TOOL],
                 temperature=gemini_config.get("temperature", 0.2),
-                max_output_tokens=gemini_config.get("max_output_tokens", 8000),
+                max_output_tokens=gemini_config.get("max_output_tokens", 60000),
             ),
         )
 
-        raw_text = _strip_markdown_fences(response.text.strip())
+        raw_text = strip_markdown_fences(response.text.strip())
         articles: list[dict] = json.loads(raw_text)
-        grounding_sources, search_queries = _extract_grounding_metadata(response)
+        grounding_sources, search_queries = extract_grounding_metadata(response)
 
         for article in articles:
             article["topic"] = topic_name
