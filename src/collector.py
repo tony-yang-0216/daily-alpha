@@ -18,6 +18,8 @@ collector.py — 新聞收集核心模組（Step 1）
 import json
 import sys
 import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
 
@@ -83,43 +85,40 @@ def extract_grounding_metadata(response: Any) -> tuple[list[dict], list[str]]:
     return sources, queries
 
 
-def replace_redirect_urls(articles: list[dict], grounding_sources: list[dict]) -> None:
-    """
-    Replace Google Vertex AI redirect URLs with actual source URLs.
+_REDIRECT_PREFIX = "vertexaisearch.cloud.google.com/grounding-api-redirect"
 
-    Gemini's Google Search grounding automatically inserts redirect URLs in the format:
-    https://vertexaisearch.cloud.google.com/grounding-api-redirect/...
 
-    This function replaces them with the actual source URLs from grounding_metadata.
-    Uses fuzzy title matching to pair articles with their corresponding sources.
-    """
-    if not grounding_sources:
+def resolve_url(url: str, timeout: int = 5) -> str:
+    """Follow HTTP redirect to get the actual article URL."""
+    if not url or _REDIRECT_PREFIX not in url:
+        return url
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return response.url
+    except Exception:
+        return url  # 失敗保留原 redirect，不崩潰
+
+
+def resolve_article_urls(articles: list[dict]) -> None:
+    """Concurrently resolve all redirect URLs in articles (in-place)."""
+    targets = [(i, a) for i, a in enumerate(articles)
+               if _REDIRECT_PREFIX in a.get("url", "")]
+    if not targets:
         return
 
-    for article in articles:
-        url = article.get("url", "")
-        # Only process redirect URLs
-        if not url or "vertexaisearch.cloud.google.com/grounding-api-redirect" not in url:
-            continue
-
-        # Find best matching source by comparing titles
-        article_title = article.get("title", "").lower()
-        best_match = None
-        best_score = 0.0
-
-        for source in grounding_sources:
-            source_title = source.get("title", "").lower()
-            # Calculate similarity score
-            score = SequenceMatcher(None, article_title, source_title).ratio()
-            if score > best_score:
-                best_score = score
-                best_match = source
-
-        # Replace URL if we found a good match (threshold: 0.3)
-        if best_match and best_score > 0.3:
-            article["url"] = best_match.get("uri", url)
-            article["_original_redirect_url"] = url
-            article["_match_score"] = best_score
+    print(f"🔗 解析 {len(targets)} 個跳轉 URL...")
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(resolve_url, a["url"]): a for _, a in targets}
+        resolved_count = 0
+        for future in as_completed(futures):
+            article = futures[future]
+            resolved = future.result()
+            if resolved != article["url"]:
+                article["_original_redirect_url"] = article["url"]
+                article["url"] = resolved
+                resolved_count += 1
+    print(f"   ✅ 成功解析 {resolved_count} / {len(targets)} 個")
 
 
 def search_topic(client: Any, model: str, topic: dict, gemini_config: dict) -> dict:
@@ -310,6 +309,7 @@ def collect_all(topic_filter: str | None = None) -> dict:
 
     unique_articles = deduplicate_articles(all_articles)
     dedup_removed = len(all_articles) - len(unique_articles)
+    resolve_article_urls(unique_articles)
 
     print(f"📊 原始文章：{len(all_articles)} 篇")
     print(f"🧹 去重移除：{dedup_removed} 篇")

@@ -152,30 +152,35 @@ def replace_redirect_urls_in_report(
     report_text: str, selected_articles: list[dict]
 ) -> str:
     """
-    Replace Google Vertex AI redirect URLs in the report with actual source URLs.
+    Replace Google Vertex AI redirect URLs in the report with the corresponding
+    article URLs from selected_articles (matched by position in the report).
 
-    Note: selected_articles already have their URLs fixed by collector.py's
-    replace_redirect_urls(), so we just need to use them in order.
+    Gemini generates fresh grounding redirect URLs during report generation.
+    These expire quickly, so we replace them with the original article URLs
+    (which may themselves be Step-1 redirect URLs, but are at least correct).
+
+    Articles that already have real URLs (e.g. international news) are output
+    by Gemini verbatim — they won't match the redirect pattern, so they are
+    skipped and the counter stays in sync.
     """
-    # Pattern to match redirect URLs in markdown links
     redirect_pattern = r"https://vertexaisearch\.cloud\.google\.com/grounding-api-redirect/[^\s\)]+"
 
-    # Get fixed URLs from selected articles (these were already processed in Step 1)
-    article_urls = [
-        a.get("url", "")
-        for a in selected_articles
-        if a.get("url") and "vertexaisearch" not in a.get("url", "")
-    ]
+    # Use ALL article URLs (including Step-1 redirect URLs).
+    # Previously this filtered to non-redirect URLs only, which caused the
+    # wrong 2-3 international-news URLs to cycle over all tech articles.
+    article_urls = [a.get("url", "") for a in selected_articles if a.get("url")]
 
     if not article_urls:
         return report_text
 
-    # Replace redirect URLs with fixed URLs in order
+    # Replace redirect URLs with article URLs in order (one per article section).
+    # No cycling: if we run out of articles, leave remaining redirects as-is.
     def replace_match(match):
-        # Use articles in order, cycle through if we run out
-        idx = replace_match.counter % len(article_urls)
+        if replace_match.counter >= len(article_urls):
+            return match.group(0)
+        url = article_urls[replace_match.counter]
         replace_match.counter += 1
-        return article_urls[idx]
+        return url
 
     replace_match.counter = 0
     report_text = re.sub(redirect_pattern, replace_match, report_text)
