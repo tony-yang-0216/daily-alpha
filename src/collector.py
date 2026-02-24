@@ -143,58 +143,83 @@ def search_topic(client: Any, model: str, topic: dict, gemini_config: dict) -> d
         max_articles=topic.get("max_articles", 5),
     )
 
+    max_retries = 3
     raw_text = ""
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[_SEARCH_TOOL],
-                temperature=gemini_config.get("temperature", 0.2),
-                max_output_tokens=gemini_config.get("max_output_tokens", 60000),
-            ),
-        )
 
-        raw_text = strip_markdown_fences(response.text.strip())
-        articles: list[dict] = json.loads(raw_text)
-        grounding_sources, search_queries = extract_grounding_metadata(response)
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    tools=[_SEARCH_TOOL],
+                    temperature=gemini_config.get("temperature", 0.2),
+                    max_output_tokens=gemini_config.get("max_output_tokens", 60000),
+                ),
+            )
 
-        for article in articles:
-            article["topic"] = topic_name
-            article["category"] = topic.get("category", "tech")
-            article["priority"] = topic.get("priority", 1)
+            if response.text is None:
+                raise ValueError("Gemini 回傳空白回應（response.text is None）")
 
-        # Replace redirect URLs with actual source URLs
-        replace_redirect_urls(articles, grounding_sources)
+            raw_text = strip_markdown_fences(response.text.strip())
+            articles: list[dict] = json.loads(raw_text)
+            grounding_sources, search_queries = extract_grounding_metadata(response)
 
-        return {
-            "topic": topic_name,
-            "category": topic.get("category", "tech"),
-            "articles": articles,
-            "grounding_sources": grounding_sources,
-            "search_queries": search_queries,
-            "status": "success",
-        }
+            for article in articles:
+                article["topic"] = topic_name
+                article["category"] = topic.get("category", "tech")
+                article["priority"] = topic.get("priority", 1)
 
-    except json.JSONDecodeError as e:
-        print("  ⚠️  JSON 解析失敗，嘗試擷取部分結果...")
-        return {
-            "topic": topic_name,
-            "category": topic.get("category", "tech"),
-            "articles": [],
-            "raw_response": raw_text[:500],
-            "error": f"JSON parse error: {e}",
-            "status": "partial",
-        }
+            return {
+                "topic": topic_name,
+                "category": topic.get("category", "tech"),
+                "articles": articles,
+                "grounding_sources": grounding_sources,
+                "search_queries": search_queries,
+                "status": "success",
+            }
 
-    except Exception as e:
-        return {
-            "topic": topic_name,
-            "category": topic.get("category", "tech"),
-            "articles": [],
-            "error": str(e),
-            "status": "error",
-        }
+        except json.JSONDecodeError as e:
+            print("  ⚠️  JSON 解析失敗，嘗試擷取部分結果...")
+            return {
+                "topic": topic_name,
+                "category": topic.get("category", "tech"),
+                "articles": [],
+                "raw_response": raw_text[:500],
+                "error": f"JSON parse error: {e}",
+                "status": "partial",
+            }
+
+        except Exception as e:
+            err_str = str(e)
+            is_retryable = (
+                "503" in err_str
+                or "UNAVAILABLE" in err_str
+                or "response.text is None" in err_str
+            )
+
+            if is_retryable and attempt < max_retries - 1:
+                wait = 10 * (2 ** attempt)  # 10s → 20s
+                print(f"  ⏳ 暫時錯誤（{err_str[:60]}），{wait}s 後重試（第 {attempt + 1} 次）...")
+                time.sleep(wait)
+                continue
+
+            return {
+                "topic": topic_name,
+                "category": topic.get("category", "tech"),
+                "articles": [],
+                "error": err_str,
+                "status": "error",
+            }
+
+    # 不應該走到這裡，但防禦性回傳
+    return {
+        "topic": topic_name,
+        "category": topic.get("category", "tech"),
+        "articles": [],
+        "error": "Exceeded max retries",
+        "status": "error",
+    }
 
 
 def deduplicate_articles(articles: list[dict]) -> list[dict]:
@@ -278,7 +303,7 @@ def collect_all(topic_filter: str | None = None) -> dict:
         if i < len(topics):
             # 對 API 的禮貌性延遲：避免在短時間內送出太多請求，
             # 也讓 Google Search Grounding 的配額消耗更穩定。
-            time.sleep(1)
+            time.sleep(5)
 
     print()
     print(f"{'─' * 55}")
