@@ -32,6 +32,8 @@ except ImportError:
     print("      新版 SDK 從 2025 年開始統一用 google-genai")
     sys.exit(1)
 
+from difflib import SequenceMatcher
+
 from .config import TZ_TAIPEI, load_api_key, load_config, load_prompt
 
 # Tool 物件可重複使用（無狀態），在 module 層級建立一次即可，
@@ -81,6 +83,45 @@ def extract_grounding_metadata(response: Any) -> tuple[list[dict], list[str]]:
     return sources, queries
 
 
+def replace_redirect_urls(articles: list[dict], grounding_sources: list[dict]) -> None:
+    """
+    Replace Google Vertex AI redirect URLs with actual source URLs.
+
+    Gemini's Google Search grounding automatically inserts redirect URLs in the format:
+    https://vertexaisearch.cloud.google.com/grounding-api-redirect/...
+
+    This function replaces them with the actual source URLs from grounding_metadata.
+    Uses fuzzy title matching to pair articles with their corresponding sources.
+    """
+    if not grounding_sources:
+        return
+
+    for article in articles:
+        url = article.get("url", "")
+        # Only process redirect URLs
+        if not url or "vertexaisearch.cloud.google.com/grounding-api-redirect" not in url:
+            continue
+
+        # Find best matching source by comparing titles
+        article_title = article.get("title", "").lower()
+        best_match = None
+        best_score = 0.0
+
+        for source in grounding_sources:
+            source_title = source.get("title", "").lower()
+            # Calculate similarity score
+            score = SequenceMatcher(None, article_title, source_title).ratio()
+            if score > best_score:
+                best_score = score
+                best_match = source
+
+        # Replace URL if we found a good match (threshold: 0.3)
+        if best_match and best_score > 0.3:
+            article["url"] = best_match.get("uri", url)
+            article["_original_redirect_url"] = url
+            article["_match_score"] = best_score
+
+
 def search_topic(client: Any, model: str, topic: dict, gemini_config: dict) -> dict:
     """
     Search a single topic using Gemini with Google Search Grounding.
@@ -122,6 +163,9 @@ def search_topic(client: Any, model: str, topic: dict, gemini_config: dict) -> d
             article["topic"] = topic_name
             article["category"] = topic.get("category", "tech")
             article["priority"] = topic.get("priority", 1)
+
+        # Replace redirect URLs with actual source URLs
+        replace_redirect_urls(articles, grounding_sources)
 
         return {
             "topic": topic_name,

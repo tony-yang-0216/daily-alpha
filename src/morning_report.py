@@ -19,6 +19,7 @@ morning_report.py — Step 2: AI 深度分析 + 晨報產出
 
 import argparse
 import json
+import re
 import sys
 import time
 from datetime import datetime
@@ -144,6 +145,44 @@ def select_top_articles(client, articles: list[dict], config: dict) -> list[dict
     return selected
 
 
+# ─── URL 修復函數 ────────────────────────────────────
+
+
+def replace_redirect_urls_in_report(
+    report_text: str, selected_articles: list[dict]
+) -> str:
+    """
+    Replace Google Vertex AI redirect URLs in the report with actual source URLs.
+
+    Note: selected_articles already have their URLs fixed by collector.py's
+    replace_redirect_urls(), so we just need to use them in order.
+    """
+    # Pattern to match redirect URLs in markdown links
+    redirect_pattern = r"https://vertexaisearch\.cloud\.google\.com/grounding-api-redirect/[^\s\)]+"
+
+    # Get fixed URLs from selected articles (these were already processed in Step 1)
+    article_urls = [
+        a.get("url", "")
+        for a in selected_articles
+        if a.get("url") and "vertexaisearch" not in a.get("url", "")
+    ]
+
+    if not article_urls:
+        return report_text
+
+    # Replace redirect URLs with fixed URLs in order
+    def replace_match(match):
+        # Use articles in order, cycle through if we run out
+        idx = replace_match.counter % len(article_urls)
+        replace_match.counter += 1
+        return article_urls[idx]
+
+    replace_match.counter = 0
+    report_text = re.sub(redirect_pattern, replace_match, report_text)
+
+    return report_text
+
+
 # ─── 第二步：深度分析 + 初學者筆記 ─────────────────────
 
 
@@ -193,6 +232,10 @@ def generate_report(client, selected_articles: list[dict], config: dict) -> str:
     print(f"   🔍 引用了 {len(sources)} 個來源，搜尋了 {len(search_queries)} 次")
 
     report_text = response.text.strip()
+
+    # Replace redirect URLs with actual source URLs from selected articles
+    report_text = replace_redirect_urls_in_report(report_text, selected_articles)
+
     print(f"   ✅ 晨報產出完成（{len(report_text)} 字）")
     return report_text
 
